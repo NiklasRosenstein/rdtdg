@@ -56,10 +56,16 @@ jobs:
       - name: Build
         run: npm run build -- --base "${{ steps.paths.outputs.base }}"
 
-      - name: Disable Jekyll
+      - name: Prepare Pages metadata
         run: |
           touch dist/.nojekyll
-          cp .gitattributes dist/.gitattributes
+          cat > dist/.gitattributes << 'EOF'
+          *.png -filter -diff -merge -text
+          *.webp -filter -diff -merge -text
+          *.jpg -filter -diff -merge -text
+          *.jpeg -filter -diff -merge -text
+          *.gif -filter -diff -merge -text
+          EOF
 
       - name: Deploy main site
         if: github.event_name == 'push'
