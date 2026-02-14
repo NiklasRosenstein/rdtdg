@@ -13,10 +13,21 @@ export interface TrapHit {
 }
 
 export interface TowerShot {
+  kind: "cannon";
   tower: Tower;
   target: Enemy;
   damage: number;
 }
+
+export interface GooShot {
+  kind: "goo";
+  tower: Tower;
+  targetHex: Hex;
+  affectedEnemies: Enemy[];
+  slowApplied: number;
+}
+
+export type TowerAttack = TowerShot | GooShot;
 
 export class CombatSystem {
   applyFireball(enemies: Enemy[], path: Hex[], targetHex: Hex, radius: number, damage: number): FireballHit[] {
@@ -35,6 +46,22 @@ export class CombatSystem {
     }
 
     return hits;
+  }
+
+  applyGlobalSlow(enemies: Enemy[], slowStacks: number): Enemy[] {
+    if (slowStacks <= 0) {
+      return [];
+    }
+
+    const affected: Enemy[] = [];
+    for (const enemy of enemies) {
+      if (!enemy.alive) {
+        continue;
+      }
+      enemy.slowStacks += slowStacks;
+      affected.push(enemy);
+    }
+    return affected;
   }
 
   resolveTraps(enemies: Enemy[], traps: Trap[], path: Hex[], hitThisTimestep?: Set<string>): TrapHit[] {
@@ -70,10 +97,14 @@ export class CombatSystem {
     return hits;
   }
 
-  resolveTowers(enemies: Enemy[], towers: Tower[], path: Hex[]): TowerShot[] {
-    const shots: TowerShot[] = [];
+  resolveTowers(enemies: Enemy[], towers: Tower[], path: Hex[], currentTimestep: number, gooSlowStacks: number): TowerAttack[] {
+    const shots: TowerAttack[] = [];
 
     for (const tower of towers) {
+      if (currentTimestep < tower.nextFireTimestep) {
+        continue;
+      }
+
       let best: Enemy | null = null;
 
       for (const enemy of enemies) {
@@ -91,10 +122,26 @@ export class CombatSystem {
         }
       }
 
-      if (best) {
-        this.applyDamage(best, tower.damage);
-        shots.push({ tower, target: best, damage: tower.damage });
+      if (!best) {
+        continue;
       }
+
+      if (tower.kind === "goo") {
+        const targetHex = getEnemyHex(best, path);
+        const affectedEnemies = this.applySlowOnHex(enemies, path, targetHex, gooSlowStacks);
+        shots.push({
+          kind: "goo",
+          tower,
+          targetHex: { ...targetHex },
+          affectedEnemies,
+          slowApplied: gooSlowStacks
+        });
+      } else {
+        this.applyDamage(best, tower.damage);
+        shots.push({ kind: "cannon", tower, target: best, damage: tower.damage });
+      }
+
+      tower.nextFireTimestep = currentTimestep + tower.fireIntervalTimesteps;
     }
 
     return shots;
@@ -106,6 +153,26 @@ export class CombatSystem {
       enemy.hp = 0;
       enemy.alive = false;
     }
+  }
+
+  private applySlowOnHex(enemies: Enemy[], path: Hex[], targetHex: Hex, slowStacks: number): Enemy[] {
+    if (slowStacks <= 0) {
+      return [];
+    }
+
+    const affected: Enemy[] = [];
+    for (const enemy of enemies) {
+      if (!enemy.alive) {
+        continue;
+      }
+      const enemyHex = getEnemyHex(enemy, path);
+      if (enemyHex.q !== targetHex.q || enemyHex.r !== targetHex.r) {
+        continue;
+      }
+      enemy.slowStacks += slowStacks;
+      affected.push(enemy);
+    }
+    return affected;
   }
 }
 

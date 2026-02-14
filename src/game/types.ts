@@ -1,8 +1,9 @@
 import type Phaser from "phaser";
 
-export type CardType = "cannon_tower" | "fireball" | "spike_trap";
+export type CardType = "cannon_tower" | "fireball" | "spike_trap" | "goo_tower" | "goo_ball";
 export type GamePhase = "player_action" | "enemy_step" | "victory" | "defeat";
 export type EnemyType = "goblin" | "orc" | "gargoyle";
+export type TowerKind = "cannon" | "goo";
 
 export interface Hex {
   q: number;
@@ -63,6 +64,7 @@ export interface Enemy {
   pathIndex: number;
   hp: number;
   maxHp: number;
+  slowStacks: number;
   alive: boolean;
   spriteScale: number;
   sprite: Phaser.GameObjects.Image;
@@ -72,9 +74,12 @@ export interface Enemy {
 
 export interface Tower {
   id: number;
+  kind: TowerKind;
   hex: Hex;
   rangeHex: number;
   damage: number;
+  fireIntervalTimesteps: number;
+  nextFireTimestep: number;
   sprite: Phaser.GameObjects.Arc;
 }
 
