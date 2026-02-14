@@ -101,7 +101,7 @@ jobs:
             const deployment = await github.rest.repos.createDeployment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: context.sha,
+              ref: "${{ github.event.pull_request.head.sha }}",
               environment: "${{ steps.paths.outputs.environment_name }}",
               transient_environment: true,
               production_environment: false,
