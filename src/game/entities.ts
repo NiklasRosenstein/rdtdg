@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-import { Enemy, EnemyArchetype, Hex, Tower, Trap } from "./types";
+import { Enemy, EnemyArchetype, Hex, Tower, TowerKind, Trap } from "./types";
 
 const HP_BAR_WIDTH = 20;
 
@@ -29,6 +29,7 @@ export function createEnemy(scene: Phaser.Scene, id: number, archetype: EnemyArc
     pathIndex: 0,
     hp: archetype.maxHp,
     maxHp: archetype.maxHp,
+    slowStacks: 0,
     alive: true,
     spriteScale: fitScale,
     sprite,
@@ -55,16 +56,32 @@ export function destroyEnemy(enemy: Enemy): void {
   enemy.hpFill.destroy();
 }
 
-export function createTower(scene: Phaser.Scene, id: number, hex: Hex, x: number, y: number, rangeHex: number, damage: number): Tower {
-  const sprite = scene.add.circle(x, y, 12, 0xf59e0b);
-  sprite.setStrokeStyle(2, 0x78350f);
+export function createTower(
+  scene: Phaser.Scene,
+  id: number,
+  kind: TowerKind,
+  hex: Hex,
+  x: number,
+  y: number,
+  rangeHex: number,
+  damage: number,
+  fireIntervalTimesteps: number,
+  nextFireTimestep: number
+): Tower {
+  const fillColor = kind === "goo" ? 0x10b981 : 0xf59e0b;
+  const strokeColor = kind === "goo" ? 0x064e3b : 0x78350f;
+  const sprite = scene.add.circle(x, y, 12, fillColor);
+  sprite.setStrokeStyle(2, strokeColor);
   sprite.setDepth(20);
 
   return {
     id,
+    kind,
     hex,
     rangeHex,
     damage,
+    fireIntervalTimesteps,
+    nextFireTimestep,
     sprite
   };
 }

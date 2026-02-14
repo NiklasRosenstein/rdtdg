@@ -52,6 +52,11 @@ export const ENEMY_ARCHETYPES: Record<EnemyType, EnemyArchetype> = {
 
 export const CANNON_RANGE_HEX = 2;
 export const CANNON_DAMAGE = 1;
+export const CANNON_FIRE_INTERVAL_TIMESTEPS = 1;
+
+export const GOO_TOWER_RANGE_HEX = 2;
+export const GOO_TOWER_FIRE_INTERVAL_TIMESTEPS = 2;
+export const GOO_SLOW_STACKS_PER_APPLICATION = 1;
 
 export const FIREBALL_DAMAGE = 2;
 export const FIREBALL_RADIUS_HEX = 1;
@@ -76,11 +81,25 @@ export const CARD_DEFINITIONS: Record<CardType, CardDefinition> = {
     name: "Spike Trap",
     timestepCost: 1,
     artKey: "card_spike"
+  },
+  goo_tower: {
+    type: "goo_tower",
+    name: "Goo Tower",
+    timestepCost: 2,
+    artKey: "card_goo_tower"
+  },
+  goo_ball: {
+    type: "goo_ball",
+    name: "Goo Ball",
+    timestepCost: 3,
+    artKey: "card_goo_ball"
   }
 };
 
 export const STARTING_DECK_COMPOSITION: Record<CardType, number> = {
   cannon_tower: 3,
   fireball: 3,
-  spike_trap: 3
+  spike_trap: 3,
+  goo_tower: 1,
+  goo_ball: 1
 };

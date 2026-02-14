@@ -2,6 +2,7 @@ import Phaser from "phaser";
 
 import {
   CARD_DEFINITIONS,
+  CANNON_FIRE_INTERVAL_TIMESTEPS,
   CANNON_DAMAGE,
   CANNON_RANGE_HEX,
   DRAW_ACTION_COUNT,
@@ -10,6 +11,9 @@ import {
   ENEMY_STEP_SPEED_MULTIPLIER,
   FIREBALL_DAMAGE,
   FIREBALL_RADIUS_HEX,
+  GOO_SLOW_STACKS_PER_APPLICATION,
+  GOO_TOWER_FIRE_INTERVAL_TIMESTEPS,
+  GOO_TOWER_RANGE_HEX,
   HAND_LIMIT,
   HAND_PANEL_HEIGHT,
   HEX_SIZE,
@@ -41,10 +45,10 @@ import {
   isInsideMap
 } from "./level";
 import { CardSystem } from "./systems/CardSystem";
-import { CombatSystem, TrapHit, TowerShot } from "./systems/CombatSystem";
+import { CombatSystem, TowerAttack, TrapHit } from "./systems/CombatSystem";
 import { TurnSystem } from "./systems/TurnSystem";
 import { WaveSystem } from "./systems/WaveSystem";
-import { DeckState, Enemy, EnemyType, GamePhase, HandCardView, Hex, HexLayout, Tower, Trap } from "./types";
+import { DeckState, Enemy, EnemyType, GamePhase, HandCardView, Hex, HexLayout, Tower, TowerKind, Trap } from "./types";
 
 const HAND_CARD_W = 122;
 const HAND_CARD_H = 170;
@@ -100,6 +104,7 @@ export class GameScene extends Phaser.Scene {
   private trapId = 1;
   private enemySpawnCounter = 0;
   private enemyPhaseToken = 0;
+  private timestepIndex = 0;
   private handHotkeys: Array<{ key: Phaser.Input.Keyboard.Key; index: number }> = [];
   private readonly textResolution = Math.min(window.devicePixelRatio || 1, 2);
   private readonly onWindowKeyDown = (event: KeyboardEvent): void => {
@@ -117,6 +122,8 @@ export class GameScene extends Phaser.Scene {
     this.load.image("card_cannon", "assets/cannon_tower.webp");
     this.load.image("card_fireball", "assets/fireball_spell.webp");
     this.load.image("card_spike", "assets/spike_trap.webp");
+    this.load.image("card_goo_tower", "assets/goo_tower.png");
+    this.load.image("card_goo_ball", "assets/gooball.png");
     this.load.image("enemy_goblin", "assets/enemy_goblin.webp");
     this.load.image("enemy_orc", "assets/enemy_orc.webp");
     this.load.image("enemy_gargoyle", "assets/enemy_gargoyle.webp");
@@ -252,6 +259,7 @@ export class GameScene extends Phaser.Scene {
     this.towerId = 1;
     this.trapId = 1;
     this.enemySpawnCounter = 0;
+    this.timestepIndex = 0;
 
     this.occupiedTowerHexKeys.clear();
     this.occupiedTrapHexKeys.clear();
@@ -603,7 +611,23 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const actionApplied = card.type === "cannon_tower" ? this.tryPlaceTower(targetHex) : this.tryPlaceTrap(targetHex);
+    if (card.type === "goo_ball") {
+      this.cardSystem.playCard(this.deck, card.id);
+      this.setSelectedCard(null);
+      this.renderHand();
+      void this.animateGooBallCardThenEnemyPhase(targetHex, card.timestepCost);
+      return;
+    }
+
+    let actionApplied = false;
+    if (card.type === "cannon_tower") {
+      actionApplied = this.tryPlaceTower(targetHex, "cannon");
+    } else if (card.type === "goo_tower") {
+      actionApplied = this.tryPlaceTower(targetHex, "goo");
+    } else if (card.type === "spike_trap") {
+      actionApplied = this.tryPlaceTrap(targetHex);
+    }
+
     if (!actionApplied) {
       this.flashInvalidHex(hexKey(targetHex));
       return;
@@ -616,14 +640,28 @@ export class GameScene extends Phaser.Scene {
     void this.executeEnemyPhase(card.timestepCost);
   }
 
-  private tryPlaceTower(targetHex: Hex): boolean {
+  private tryPlaceTower(targetHex: Hex, kind: TowerKind): boolean {
     const key = hexKey(targetHex);
     if (!this.buildableHexKeys.has(key) || this.occupiedTowerHexKeys.has(key)) {
       return false;
     }
 
     const pos = hexToPixel(targetHex, this.layout);
-    const tower = createTower(this, this.towerId, targetHex, pos.x, pos.y, CANNON_RANGE_HEX, CANNON_DAMAGE);
+    const rangeHex = kind === "goo" ? GOO_TOWER_RANGE_HEX : CANNON_RANGE_HEX;
+    const damage = kind === "goo" ? 0 : CANNON_DAMAGE;
+    const fireIntervalTimesteps = kind === "goo" ? GOO_TOWER_FIRE_INTERVAL_TIMESTEPS : CANNON_FIRE_INTERVAL_TIMESTEPS;
+    const tower = createTower(
+      this,
+      this.towerId,
+      kind,
+      targetHex,
+      pos.x,
+      pos.y,
+      rangeHex,
+      damage,
+      fireIntervalTimesteps,
+      this.timestepIndex + fireIntervalTimesteps
+    );
     this.towerId += 1;
 
     this.towers.push(tower);
@@ -687,6 +725,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private async executeEnemySubstepAnimated(token: number): Promise<boolean> {
+    this.timestepIndex += 1;
+
     const spawned: Enemy[] = [];
     this.waveSystem.spawnEnemyForSubstep(() => {
       spawned.push(this.spawnEnemyByWave());
@@ -702,7 +742,13 @@ export class GameScene extends Phaser.Scene {
       return false;
     }
 
-    const towerShots = this.combatSystem.resolveTowers(this.enemies, this.towers, PATH_HEXES);
+    const towerShots = this.combatSystem.resolveTowers(
+      this.enemies,
+      this.towers,
+      PATH_HEXES,
+      this.timestepIndex,
+      GOO_SLOW_STACKS_PER_APPLICATION
+    );
     this.syncEnemyVisuals();
     await this.animateTowerShots(towerShots, token);
     if (token !== this.enemyPhaseToken) {
@@ -710,6 +756,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.cleanupDefeatedEnemies();
+    this.decayEnemySlowStacks();
 
     const waveResult = this.waveSystem.tryAdvanceIfCleared(this.countAliveEnemies());
     if (waveResult === "victory") {
@@ -766,6 +813,18 @@ export class GameScene extends Phaser.Scene {
     await this.executeEnemyPhase(timestepCost);
   }
 
+  private async animateGooBallCardThenEnemyPhase(targetHex: Hex, timestepCost: number): Promise<void> {
+    const token = ++this.enemyPhaseToken;
+    this.phase = "enemy_step";
+
+    await this.animateGooBallImpact(targetHex, token);
+    if (token !== this.enemyPhaseToken || this.isTerminalPhase()) {
+      return;
+    }
+
+    await this.executeEnemyPhase(timestepCost);
+  }
+
   private async animateFireballImpact(targetHex: Hex, token: number): Promise<void> {
     const impact = hexToPixel(targetHex, this.layout);
 
@@ -813,6 +872,45 @@ export class GameScene extends Phaser.Scene {
     await this.wait(120);
   }
 
+  private async animateGooBallImpact(targetHex: Hex, token: number): Promise<void> {
+    const impact = hexToPixel(targetHex, this.layout);
+
+    const projectile = this.add.circle(impact.x, impact.y - 120, 10, 0x34d399, 1);
+    projectile.setDepth(170);
+
+    await this.tweenPromise({
+      targets: projectile,
+      y: impact.y,
+      ease: "Quad.easeIn",
+      duration: 260
+    });
+
+    if (token !== this.enemyPhaseToken) {
+      projectile.destroy();
+      return;
+    }
+
+    projectile.destroy();
+
+    const shockwave = this.add.circle(impact.x, impact.y, 14, 0x10b981, 0.5);
+    shockwave.setDepth(168);
+    this.tweens.add({
+      targets: shockwave,
+      radius: HEX_SIZE * 2.5,
+      alpha: 0,
+      ease: "Sine.easeOut",
+      duration: 260,
+      onComplete: () => shockwave.destroy()
+    });
+
+    const affected = this.combatSystem.applyGlobalSlow(this.enemies, GOO_SLOW_STACKS_PER_APPLICATION);
+    for (const enemy of affected) {
+      this.flashEnemy(enemy, 0x4ade80, 180);
+    }
+
+    await this.wait(120);
+  }
+
   private async animateEnemyMovementStep(
     spawned: Enemy[],
     token: number,
@@ -846,7 +944,8 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
 
-      const tiles = Math.max(0, enemy.moveTilesPerStep * ENEMY_STEP_SPEED_MULTIPLIER);
+      const baseTiles = enemy.moveTilesPerStep * ENEMY_STEP_SPEED_MULTIPLIER;
+      const tiles = Math.max(1, baseTiles - enemy.slowStacks);
       tilesToMove.set(enemy.id, tiles);
       maxTiles = Math.max(maxTiles, tiles);
     }
@@ -968,18 +1067,13 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private async animateTowerShots(shots: TowerShot[], token: number): Promise<void> {
+  private async animateTowerShots(shots: TowerAttack[], token: number): Promise<void> {
     if (shots.length > 0) {
       const beamGraphics = this.add.graphics();
       beamGraphics.setDepth(165);
+      let hasCannonShot = false;
 
       for (const shot of shots) {
-        beamGraphics.lineStyle(2, 0xfde68a, 0.95);
-        beamGraphics.beginPath();
-        beamGraphics.moveTo(shot.tower.sprite.x, shot.tower.sprite.y);
-        beamGraphics.lineTo(shot.target.sprite.x, shot.target.sprite.y);
-        beamGraphics.strokePath();
-
         this.tweens.add({
           targets: shot.tower.sprite,
           scaleX: 1.12,
@@ -987,15 +1081,56 @@ export class GameScene extends Phaser.Scene {
           yoyo: true,
           duration: STEP_TOWER_MS * 0.45
         });
-        this.flashEnemy(shot.target, 0xfacc15, 140);
+
+        if (shot.kind === "cannon") {
+          hasCannonShot = true;
+          beamGraphics.lineStyle(2, 0xfde68a, 0.95);
+          beamGraphics.beginPath();
+          beamGraphics.moveTo(shot.tower.sprite.x, shot.tower.sprite.y);
+          beamGraphics.lineTo(shot.target.sprite.x, shot.target.sprite.y);
+          beamGraphics.strokePath();
+          this.flashEnemy(shot.target, 0xfacc15, 140);
+          continue;
+        }
+
+        const impact = hexToPixel(shot.targetHex, this.layout);
+        const gooProjectile = this.add.circle(shot.tower.sprite.x, shot.tower.sprite.y, 5, 0x34d399, 1);
+        gooProjectile.setDepth(166);
+        this.tweens.add({
+          targets: gooProjectile,
+          x: impact.x,
+          y: impact.y,
+          ease: "Quad.easeInOut",
+          duration: STEP_TOWER_MS * 0.55,
+          onComplete: () => {
+            gooProjectile.destroy();
+            const splash = this.add.circle(impact.x, impact.y, 10, 0x34d399, 0.35);
+            splash.setDepth(166);
+            this.tweens.add({
+              targets: splash,
+              radius: HEX_SIZE * 0.8,
+              alpha: 0,
+              duration: STEP_TOWER_MS * 0.45,
+              onComplete: () => splash.destroy()
+            });
+          }
+        });
+
+        for (const enemy of shot.affectedEnemies) {
+          this.flashEnemy(enemy, 0x4ade80, 160);
+        }
       }
 
-      this.tweens.add({
-        targets: beamGraphics,
-        alpha: 0,
-        duration: STEP_TOWER_MS * 0.7,
-        onComplete: () => beamGraphics.destroy()
-      });
+      if (hasCannonShot) {
+        this.tweens.add({
+          targets: beamGraphics,
+          alpha: 0,
+          duration: STEP_TOWER_MS * 0.7,
+          onComplete: () => beamGraphics.destroy()
+        });
+      } else {
+        beamGraphics.destroy();
+      }
     }
 
     await this.wait(STEP_TOWER_MS);
@@ -1005,6 +1140,15 @@ export class GameScene extends Phaser.Scene {
 
     this.syncEnemyVisuals();
     this.cleanupDefeatedEnemies();
+  }
+
+  private decayEnemySlowStacks(): void {
+    for (const enemy of this.enemies) {
+      if (!enemy.alive || enemy.slowStacks <= 0) {
+        continue;
+      }
+      enemy.slowStacks = Math.max(0, enemy.slowStacks - 1);
+    }
   }
 
   private flashEnemy(enemy: Enemy, tint: number, durationMs: number): void {
@@ -1219,10 +1363,19 @@ export class GameScene extends Phaser.Scene {
     } else {
       const card = this.cardSystem.findHandCard(this.deck, this.selectedCardId);
       if (card) {
-        this.detailText.setText(
-          `Selected: ${card.name} (Enemy +${card.timestepCost} steps). ` +
-            "Cannon: buildable hex. Spike: path hex. Fireball: hex with enemy."
-        );
+        let ruleText = "";
+        if (card.type === "cannon_tower") {
+          ruleText = "Place on buildable hex.";
+        } else if (card.type === "goo_tower") {
+          ruleText = "Place on buildable hex. Fires every 2 timesteps and applies slow on target hex.";
+        } else if (card.type === "spike_trap") {
+          ruleText = "Place on path hex.";
+        } else if (card.type === "fireball") {
+          ruleText = "Cast on hex with enemy.";
+        } else if (card.type === "goo_ball") {
+          ruleText = "Cast on any board hex to apply global slow.";
+        }
+        this.detailText.setText(`Selected: ${card.name} (Enemy +${card.timestepCost} steps). ${ruleText}`);
       } else {
         this.detailText.setText("Select a card in hand.");
       }
