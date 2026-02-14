@@ -24,6 +24,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Git LFS
+        run: git lfs install --local
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -52,7 +57,9 @@ jobs:
         run: npm run build -- --base "${{ steps.paths.outputs.base }}"
 
       - name: Disable Jekyll
-        run: touch dist/.nojekyll
+        run: |
+          touch dist/.nojekyll
+          cp .gitattributes dist/.gitattributes
 
       - name: Deploy main site
         if: github.event_name == 'push'

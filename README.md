@@ -30,8 +30,8 @@ npm run preview
 - `Cannon Tower` (`assets/cannon_tower.webp`): place on buildable hex, enemy +1 step.
 - `Fireball` (`assets/fireball_spell.webp`): cast on enemy hex, small AoE damage, enemy +2 steps.
 - `Spike Trap` (`assets/spike_trap.webp`): place on path hex, persistent step damage, enemy +1 step.
-- `Goo Tower` (`assets/goo_tower.png`): place on buildable hex, enemy +2 steps. Shoots every 2 timesteps and applies +1 stack of slow to all enemies on target hex.
-- `Goo Ball` (`assets/gooball.png`): cast on any board hex, enemy +3 steps. Applies +1 stack of slow globally to all alive enemies.
+- `Goo Tower` (`assets/goo_tower.webp`): place on buildable hex, enemy +2 steps. Shoots every 2 timesteps and applies +1 stack of slow to all enemies on target hex.
+- `Goo Ball` (`assets/gooball.webp`): cast on any board hex, enemy +3 steps. Applies +1 stack of slow globally to all alive enemies.
 
 Slow rules:
 - Slow stacks are additive.
@@ -45,3 +45,8 @@ Slow rules:
 - Click `Draw 2 (Enemy +1 Step)` for draw action.
 - Press `Space` for draw action.
 - Press `R` after victory/defeat to restart.
+
+## Assets
+
+- Runtime assets are served from `public/assets/` so Vite includes them in production builds.
+- Binary asset types are tracked via Git LFS (`.gitattributes`) to avoid bloating repository history and gh-pages deployments.
