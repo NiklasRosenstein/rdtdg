@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 
+import { HEX_SIZE } from "./config";
 import { Enemy, EnemyArchetype, Hex, Tower, TowerKind, Trap } from "./types";
 
 const HP_BAR_WIDTH = 20;
@@ -68,10 +69,12 @@ export function createTower(
   fireIntervalTimesteps: number,
   nextFireTimestep: number
 ): Tower {
-  const fillColor = kind === "goo" ? 0x10b981 : 0xf59e0b;
-  const strokeColor = kind === "goo" ? 0x064e3b : 0x78350f;
-  const sprite = scene.add.circle(x, y, 12, fillColor);
-  sprite.setStrokeStyle(2, strokeColor);
+  const textureKey = kind === "goo" ? "tower_goo_top" : "tower_cannon_top";
+  const sprite = scene.add.image(x, y, textureKey);
+  const maxW = HEX_SIZE * 1.1;
+  const maxH = HEX_SIZE * 1.1;
+  const fitScale = Math.min(maxW / sprite.width, maxH / sprite.height);
+  sprite.setScale(fitScale);
   sprite.setDepth(20);
 
   return {
@@ -91,8 +94,11 @@ export function destroyTower(tower: Tower): void {
 }
 
 export function createTrap(scene: Phaser.Scene, id: number, hex: Hex, x: number, y: number, damage: number): Trap {
-  const sprite = scene.add.triangle(x, y, 0, 14, 10, -8, 20, 14, 0xef4444);
-  sprite.setStrokeStyle(2, 0x7f1d1d);
+  const sprite = scene.add.image(x, y, "trap_spike_top");
+  const maxW = HEX_SIZE * 0.95;
+  const maxH = HEX_SIZE * 0.95;
+  const fitScale = Math.min(maxW / sprite.width, maxH / sprite.height);
+  sprite.setScale(fitScale);
   sprite.setDepth(25);
 
   return {
