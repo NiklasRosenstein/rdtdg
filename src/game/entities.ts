@@ -94,11 +94,8 @@ export function destroyTower(tower: Tower): void {
 }
 
 export function createTrap(scene: Phaser.Scene, id: number, hex: Hex, x: number, y: number, damage: number): Trap {
-  const sprite = scene.add.image(x, y, "trap_spike_top");
-  const maxW = HEX_SIZE * 0.95;
-  const maxH = HEX_SIZE * 0.95;
-  const fitScale = Math.min(maxW / sprite.width, maxH / sprite.height);
-  sprite.setScale(fitScale);
+  const sprite = scene.add.triangle(x, y, 0, 14, 10, -8, 20, 14, 0xef4444);
+  sprite.setStrokeStyle(2, 0x7f1d1d);
   sprite.setDepth(25);
 
   return {

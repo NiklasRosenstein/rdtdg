@@ -126,7 +126,6 @@ export class GameScene extends Phaser.Scene {
     this.load.image("card_goo_ball", "assets/gooball.webp");
     this.load.image("tower_cannon_top", "assets/cannon_tower_top.webp");
     this.load.image("tower_goo_top", "assets/goo_tower_top.webp");
-    this.load.image("trap_spike_top", "assets/spike_trap_top.webp");
     this.load.image("spell_fireball_top", "assets/fireball_top.webp");
     this.load.image("enemy_goblin", "assets/enemy_goblin.webp");
     this.load.image("enemy_orc", "assets/enemy_orc.webp");

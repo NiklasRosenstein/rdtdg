@@ -87,7 +87,7 @@ export interface Trap {
   id: number;
   hex: Hex;
   damage: number;
-  sprite: Phaser.GameObjects.Image;
+  sprite: Phaser.GameObjects.Triangle;
 }
 
 export interface HandCardView {
