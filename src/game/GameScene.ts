@@ -124,6 +124,9 @@ export class GameScene extends Phaser.Scene {
     this.load.image("card_spike", "assets/spike_trap.webp");
     this.load.image("card_goo_tower", "assets/goo_tower.webp");
     this.load.image("card_goo_ball", "assets/gooball.webp");
+    this.load.image("tower_cannon_top", "assets/cannon_tower_top.webp");
+    this.load.image("tower_goo_top", "assets/goo_tower_top.webp");
+    this.load.image("spell_fireball_top", "assets/fireball_top.webp");
     this.load.image("enemy_goblin", "assets/enemy_goblin.webp");
     this.load.image("enemy_orc", "assets/enemy_orc.webp");
     this.load.image("enemy_gargoyle", "assets/enemy_gargoyle.webp");
@@ -828,7 +831,9 @@ export class GameScene extends Phaser.Scene {
   private async animateFireballImpact(targetHex: Hex, token: number): Promise<void> {
     const impact = hexToPixel(targetHex, this.layout);
 
-    const projectile = this.add.circle(impact.x, impact.y - 120, 10, 0xfb923c, 1);
+    const projectile = this.add.image(impact.x, impact.y - 120, "spell_fireball_top");
+    const projectileScale = Math.min((HEX_SIZE * 0.75) / projectile.width, (HEX_SIZE * 0.75) / projectile.height);
+    projectile.setScale(projectileScale);
     projectile.setDepth(170);
 
     await this.tweenPromise({
@@ -1056,10 +1061,12 @@ export class GameScene extends Phaser.Scene {
           continue;
         }
 
+        const trapScaleX = trap.sprite.scaleX;
+        const trapScaleY = trap.sprite.scaleY;
         this.tweens.add({
           targets: trap.sprite,
-          scaleX: 1.2,
-          scaleY: 1.2,
+          scaleX: trapScaleX * 1.08,
+          scaleY: trapScaleY * 1.08,
           yoyo: true,
           duration: Math.max(40, durationMs * 0.5)
         });
@@ -1074,10 +1081,12 @@ export class GameScene extends Phaser.Scene {
       let hasCannonShot = false;
 
       for (const shot of shots) {
+        const towerScaleX = shot.tower.sprite.scaleX;
+        const towerScaleY = shot.tower.sprite.scaleY;
         this.tweens.add({
           targets: shot.tower.sprite,
-          scaleX: 1.12,
-          scaleY: 1.12,
+          scaleX: towerScaleX * 1.08,
+          scaleY: towerScaleY * 1.08,
           yoyo: true,
           duration: STEP_TOWER_MS * 0.45
         });

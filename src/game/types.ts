@@ -80,7 +80,7 @@ export interface Tower {
   damage: number;
   fireIntervalTimesteps: number;
   nextFireTimestep: number;
-  sprite: Phaser.GameObjects.Arc;
+  sprite: Phaser.GameObjects.Image;
 }
 
 export interface Trap {
